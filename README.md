@@ -108,6 +108,23 @@ screenshots/ screenshots of the full flow, including the Step-Up approval screen
 
 > **Note:** The exported workflow JSON files do not contain any credentials — all API keys and tokens are referenced via n8n's credential store and must be configured in your own n8n instance.
 
+## Testing without n8n's UI
+
+`replay_scenarios.py` lets you replay any row from `data/test_scenarios.csv` directly against your deployed webhook, without opening n8n at all:
+
+```
+pip install requests
+python replay_scenarios.py --webhook-url <your-n8n-webhook-url>
+```
+
+Replay a single scenario by row number:
+
+```
+python replay_scenarios.py --webhook-url <your-n8n-webhook-url> --row 3
+```
+
+Each run prints the request sent and the pipeline's full decision response (scores, reasoning, and final APPROVE / STEP_UP / DECLINE outcome).
+
 ## Status
 
 Working end-to-end prototype: form submission → 4-agent scoring pipeline → decision → audit log → human Step-Up approval loop. Built as an exploration of what an intent-verification layer for agentic payments could look like.
