@@ -1,0 +1,8 @@
+card_member,category,spend_cap,max_frequency,allowed_merchants
+J. Alvarez,Groceries,150,monthly,"Whole Foods, Kroger, Safeway"
+J. Alvarez,Travel,500,quarterly,"Delta, United, Marriott"
+J. Alvarez,Dining,60,weekly,"any"
+M. Chen,Dining,80,weekly,"any"
+M. Chen,Electronics,300,quarterly,"Best Buy, Amazon"
+R. Okafor,Groceries,200,monthly,"Whole Foods, Trader Joe's, Costco"
+R. Okafor,Subscriptions,50,monthly,"Netflix, Spotify, NYT"

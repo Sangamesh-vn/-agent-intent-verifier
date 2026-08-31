@@ -1,0 +1,19 @@
+agent_id,card_member,merchant,amount,category,timestamp,outcome
+agent-047,J. Alvarez,Whole Foods,62,Groceries,2026-07-01,approved
+agent-047,J. Alvarez,Whole Foods,71,Groceries,2026-07-08,approved
+agent-047,J. Alvarez,Kroger,45,Groceries,2026-07-15,approved
+agent-047,J. Alvarez,Whole Foods,68,Groceries,2026-07-22,approved
+agent-047,J. Alvarez,Safeway,55,Groceries,2026-07-29,approved
+agent-047,J. Alvarez,Whole Foods,74,Groceries,2026-08-05,approved
+agent-047,J. Alvarez,Kroger,60,Groceries,2026-08-12,approved
+agent-047,J. Alvarez,Whole Foods,66,Groceries,2026-08-19,approved
+agent-012,M. Chen,Chipotle,18,Dining,2026-07-03,approved
+agent-012,M. Chen,Sweetgreen,22,Dining,2026-07-10,approved
+agent-012,M. Chen,Chipotle,19,Dining,2026-07-17,approved
+agent-012,M. Chen,Local Bistro,35,Dining,2026-07-24,approved
+agent-012,M. Chen,Sweetgreen,21,Dining,2026-07-31,approved
+agent-012,M. Chen,Chipotle,20,Dining,2026-08-07,approved
+agent-033,R. Okafor,Trader Joe's,88,Groceries,2026-07-05,approved
+agent-033,R. Okafor,Whole Foods,102,Groceries,2026-07-19,approved
+agent-033,R. Okafor,Costco,145,Groceries,2026-08-02,approved
+agent-033,R. Okafor,Trader Joe's,95,Groceries,2026-08-16,approved

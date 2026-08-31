@@ -1,0 +1,8 @@
+scenario,agent_id,card_member,merchant,amount,category,expected_outcome
+Clean approve - matches history,agent-047,J. Alvarez,Whole Foods,68,Groceries,Approve
+Near cap edge,agent-047,J. Alvarez,Kroger,145,Groceries,Step-Up
+New merchant same category,agent-047,J. Alvarez,Erewhon,130,Groceries,Step-Up
+Way over cap,agent-047,J. Alvarez,Whole Foods,480,Groceries,Decline
+Unregistered agent,agent-999,J. Alvarez,Whole Foods,60,Groceries,Decline
+Clean approve - dining agent,agent-012,M. Chen,Chipotle,20,Dining,Approve
+Category not authorized,agent-033,R. Okafor,Best Buy,250,Electronics,Decline

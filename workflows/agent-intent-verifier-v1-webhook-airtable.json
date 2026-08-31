@@ -1,0 +1,83 @@
+{
+  "name": "Agent Intent Verifier",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appvZz4qGV4sMFsG1",
+          "mode": "list",
+          "cachedResultName": "Agent Intent Verifier",
+          "cachedResultUrl": "https://airtable.com/appvZz4qGV4sMFsG1"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblpSjnxy1SLG6pqR",
+          "mode": "list",
+          "cachedResultName": "Authorized_Intent_Profiles",
+          "cachedResultUrl": "https://airtable.com/appvZz4qGV4sMFsG1/tblpSjnxy1SLG6pqR"
+        },
+        "filterByFormula": "=AND({card_member} = '{{ $json.body.card_member }}', {category} = '{{ $json.body.category }}')",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "c877bbb8-da45-40c1-919b-8879ca6fc4e3",
+      "name": "Search records",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Jyf2riOCrcBKMuTj",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agent-intent-verifier",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e65bc970-c04a-4add-9286-f110a21e4b52",
+      "name": "Webhook",
+      "webhookId": "527b9bf5-92b2-479b-8102-e8186d55a7d8"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "45f74f46-74ba-4c99-8f73-e79088630c29",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f79853ba6598d884dc3c4c764b3182e39222e923aa939eb3570e380f987315b1"
+  },
+  "nodeGroups": [],
+  "id": "y5seVE9sSVYkJ8Dk",
+  "tags": []
+}
