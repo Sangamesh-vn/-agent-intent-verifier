@@ -128,3 +128,8 @@ Each run prints the request sent and the pipeline's full decision response (scor
 ## Status
 
 Working end-to-end prototype: form submission → 4-agent scoring pipeline → decision → audit log → human Step-Up approval loop. Built as an exploration of what an intent-verification layer for agentic payments could look like.
+
+### Known limitations
+
+- **Behavioral history isn't wired in yet.** The Behavioral Consistency Agent currently has no access to a card member's real transaction history, so it scores conservatively (low-to-mid range) on every request by design. This means even a "clean" transaction can't yet reach a full APPROVE — it will land on STEP_UP instead. Next step: add an Airtable lookup before this agent to pass in real past-transaction data.
+- **Approve/Deny doesn't yet write back to Airtable.** The Lovable front-end sends `record_id`, `response`, and `card_member_response` on Approve/Deny, but there isn't yet a second n8n webhook + Airtable Update node to receive and persist that response. Next step: add a small second workflow to close this loop.
