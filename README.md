@@ -4,7 +4,19 @@ An AI-powered intent verification workflow for autonomous agent payments — bui
 
 As AI agents start making purchases on behalf of humans (via protocols like Agent Purchase Protection), payment networks need a way to verify that an agent's proposed transaction actually fits what its human principal authorized — not just that the agent has valid credentials. This project is a working prototype of that verification layer, including a human-in-the-loop **Step-Up approval** path for transactions that can't be auto-approved or auto-declined with confidence.
 
+![Step-Up approval screen](screenshots/04-approve-deny.jpg)
+*A human reviews the agent's reasoning and the three underlying scores before approving or denying a STEP_UP transaction.*
+
 ## How it works
+
+![Submission form](screenshots/01-submission-form.jpg)
+*The Lovable form where a transaction request is submitted.*
+
+![n8n pipeline overview](screenshots/02-pipeline-overview.jpg)
+*The full n8n pipeline: webhook → Airtable lookup → 4 verification agents → decision.*
+
+![Card member waiting for response](screenshots/03-cm-response-waiting.jpg)
+*While the pipeline runs, the card member sees a waiting state until a decision or Step-Up request comes back.*
 
 ```
 Lovable form (submit transaction request)
@@ -55,6 +67,9 @@ The Decision Agent combines the three upstream scores:
 | Everything else | **STEP_UP** — routed to human review |
 
 `STEP_UP` transactions surface in the approval screen, where a human reviews the agent's reasoning and the three underlying scores before approving or denying.
+
+![Airtable audit log](screenshots/05-audit-log.jpg)
+*Every request, score, and decision is recorded in Airtable for auditability.*
 
 ## Repo structure
 
