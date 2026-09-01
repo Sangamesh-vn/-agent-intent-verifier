@@ -55,6 +55,8 @@ STEP_UP transactions before they proceed)
 
 Each agent is a Claude API call with a narrow, single-responsibility system prompt — the pipeline is intentionally structured as separate agents rather than one large prompt, so each decision is independently auditable and each score can be inspected on its own.
 
+The pipeline runs as two separate n8n workflows: one handles the initial transaction request through to a decision, and a second, smaller workflow receives the card member's Approve/Deny click and writes it back to the same Airtable record.
+
 ## Decision logic
 
 The Decision Agent combines the three upstream scores:
@@ -88,6 +90,7 @@ screenshots/ screenshots of the full flow, including the Step-Up approval screen
 | `workflows/agent-intent-verifier-v3-behavioral-agent.json` | + Behavioral Consistency Agent |
 | `workflows/agent-intent-verifier-v4-fraud-agent.json` | + Anomaly/Fraud Signal Agent |
 | `workflows/agent-intent-verifier-v5-COMPLETE.json` | Full pipeline including Decision Agent |
+| `workflows/agent-intent-verifier-approval-response.json` | Second workflow — receives the card member's Approve/Deny click from the front-end and writes `card_member_response` back to the Airtable audit log record |
 
 ## Tech stack
 
@@ -132,4 +135,3 @@ Working end-to-end prototype: form submission → 4-agent scoring pipeline → d
 ### Known limitations
 
 - **Behavioral history isn't wired in yet.** The Behavioral Consistency Agent currently has no access to a card member's real transaction history, so it scores conservatively (low-to-mid range) on every request by design. This means even a "clean" transaction can't yet reach a full APPROVE — it will land on STEP_UP instead. Next step: add an Airtable lookup before this agent to pass in real past-transaction data.
-- **Approve/Deny doesn't yet write back to Airtable.** The Lovable front-end sends `record_id`, `response`, and `card_member_response` on Approve/Deny, but there isn't yet a second n8n webhook + Airtable Update node to receive and persist that response. Next step: add a small second workflow to close this loop.
