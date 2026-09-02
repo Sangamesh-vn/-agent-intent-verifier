@@ -1,4 +1,5 @@
 {
+  "name": "Agent Intent Verifier",
   "nodes": [
     {
       "parameters": {
@@ -17,17 +18,18 @@
           "cachedResultName": "Authorized_Intent_Profiles",
           "cachedResultUrl": "https://airtable.com/appvZz4qGV4sMFsG1/tblpSjnxy1SLG6pqR"
         },
-        "filterByFormula": "=AND({card_member} = '{{ $json.body.card_member }}', {category} = '{{ $json.body.category }}')",
+        "filterByFormula": "=AND(\n  {card_member} = '{{ $('Webhook').item.json.body.card_member }}',\n  {category} = '{{ $('Webhook').item.json.body.category }}'\n)",
         "options": {}
       },
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.2,
       "position": [
-        -208,
-        0
+        -96,
+        -96
       ],
       "id": "c877bbb8-da45-40c1-919b-8879ca6fc4e3",
       "name": "Search records",
+      "alwaysOutputData": true,
       "credentials": {
         "airtableTokenApi": {
           "id": "Jyf2riOCrcBKMuTj",
@@ -44,8 +46,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -400,
-        0
+        -496,
+        -96
       ],
       "id": "e65bc970-c04a-4add-9286-f110a21e4b52",
       "name": "Webhook",
@@ -72,17 +74,18 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 300,\n  \"system\": \"You are the Behavioral Consistency Agent for a card payments network. Check whether a new transaction is consistent with this agent's past request pattern for this card member. If history has fewer than 3 entries, score in the low-to-mid range regardless of other factors. Return ONLY valid JSON, no other text: {\\\"behavioral_score\\\": <integer 0-100>, \\\"merchant_seen_before\\\": <true|false>, \\\"pattern_established\\\": <true|false>, \\\"reasoning\\\": \\\"<one sentence, under 25 words>\\\"}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"NEW_REQUEST:\\nagent_id: {{ $('Webhook').item.json.body.agent_id }}\\ncard_member: {{ $('Webhook').item.json.body.card_member }}\\nmerchant: {{ $('Webhook').item.json.body.merchant }}\\namount: {{ $('Webhook').item.json.body.amount }}\\ncategory: {{ $('Webhook').item.json.body.category }}\\n\\nEvaluate this new request's consistency and return the JSON. Note: no historical data source is wired yet, so base this only on internal consistency of the request itself (reasonable amount for category, etc).\"\n    }\n  ]\n}",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"claude-sonnet-4-6\",\n  max_tokens: 300,\n  system: \"You are the Behavioral Consistency Agent for a card payments network. Compare the new transaction request against this card member's past transaction history. Look for consistency in merchant, category, amount range, and frequency. If no past history exists for this card member, score in the 40-60 range to reflect neutral uncertainty rather than automatic low confidence. Return ONLY valid JSON, no other text: {\\\"behavioral_score\\\": <integer 0-100>, \\\"merchant_seen_before\\\": <true|false>, \\\"pattern_established\\\": <true|false>, \\\"reasoning\\\": \\\"<one sentence, under 25 words>\\\"}\",\n  messages: [\n    {\n      role: \"user\",\n      content: \"NEW_REQUEST:\\ncard_member: \" + $('Webhook').item.json.body.card_member + \"\\ncategory: \" + $('Webhook').item.json.body.category + \"\\nmerchant: \" + $('Webhook').item.json.body.merchant + \"\\namount: \" + $('Webhook').item.json.body.amount + \"\\n\\nPAST_TRANSACTION_HISTORY: \" + JSON.stringify($('Search transaction history').all().map(i => i.json.fields)) + \"\\n\\nEvaluate how consistent this new request is with the card member's past behavior and return the JSON.\"\n    }\n  ]\n}) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        160,
-        0
+        304,
+        -96
       ],
       "id": "affa29fa-580d-4c00-ae86-48dfcc527fab",
       "name": "Behavioral Consistency Agent",
+      "executeOnce": true,
       "credentials": {
         "httpHeaderAuth": {
           "id": "k8crzR4z2jxwan5B",
@@ -111,14 +114,14 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 300,\n  \"system\": \"You are the Anomaly/Fraud Signal Agent for a card payments network. Flag structural red flags in a transaction request. If the agent is unregistered/unknown for this card member, that alone should score in the 0-29 range regardless of other factors. Return ONLY valid JSON, no other text: {\\\"fraud_risk_score\\\": <integer 0-100, where 100 means no risk detected>, \\\"agent_registered\\\": <true|false>, \\\"reasoning\\\": \\\"<one sentence, under 25 words>\\\"}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"TRANSACTION_REQUEST:\\nagent_id: {{ $('Webhook').item.json.body.agent_id }}\\ncard_member: {{ $('Webhook').item.json.body.card_member }}\\nmerchant: {{ $('Webhook').item.json.body.merchant }}\\namount: {{ $('Webhook').item.json.body.amount }}\\ncategory: {{ $('Webhook').item.json.body.category }}\\n\\nKnown registered agents: agent-047 is registered for J. Alvarez, agent-012 is registered for M. Chen, agent-033 is registered for R. Okafor. Any other agent_id is NOT registered. Evaluate this request for fraud/anomaly signals and return the JSON.\"\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 300,\n  \"system\": \"You are the Anomaly/Fraud Signal Agent for a card payments network. Flag structural red flags in a transaction request. If the agent is unregistered/unknown for this card member, score in the 0-29 range regardless of other factors. Separately, if the transaction amount is more than 5x the authorized spend cap, also score in the 0-29 range regardless of registration status, since a grossly oversized request is itself a strong fraud signal. Return ONLY valid JSON, no other text: {\\\"fraud_risk_score\\\": <integer 0-100, where 100 means no risk detected>, \\\"agent_registered\\\": <true|false>, \\\"reasoning\\\": \\\"<one sentence, under 25 words>\\\"}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"TRANSACTION_REQUEST:\\nagent_id: {{ $('Webhook').item.json.body.agent_id }}\\ncard_member: {{ $('Webhook').item.json.body.card_member }}\\nmerchant: {{ $('Webhook').item.json.body.merchant }}\\namount: {{ $('Webhook').item.json.body.amount }}\\ncategory: {{ $('Webhook').item.json.body.category }}\\n\\nAUTHORIZED_PROFILE:\\nspend_cap: {{ $('Search records').item.json.fields.spend_cap }}\\n\\nKnown registered agents: agent-047 is registered for J. Alvarez, agent-012 is registered for M. Chen, agent-033 is registered for R. Okafor. Any other agent_id is NOT registered. Evaluate this request for fraud/anomaly signals and return the JSON.\"\n    }\n  ]\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        384,
-        0
+        512,
+        -96
       ],
       "id": "f80ca679-236e-4097-9788-1c51e04e6e98",
       "name": "Anomaly / Fraud Signal Agent",
@@ -156,11 +159,12 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        -32,
-        0
+        96,
+        -96
       ],
       "id": "1ffe15ff-083c-4088-8974-67b34758da52",
       "name": "Intent Match Agent",
+      "alwaysOutputData": true,
       "credentials": {
         "httpHeaderAuth": {
           "id": "k8crzR4z2jxwan5B",
@@ -195,14 +199,14 @@
             {}
           ]
         },
-        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 300,\n  \"system\": \"You are the Decision Agent for a card payments network. Given three scores (intent match, behavioral consistency, fraud risk), decide the outcome. Decision logic: APPROVE if all three scores are 80 or above. DECLINE if the fraud risk score is below 30 (this overrides everything else), OR if all three scores are below 40. STEP_UP for everything else. Return ONLY valid JSON, no other text: {\\\"decision\\\": \\\"<APPROVE|STEP_UP|DECLINE>\\\", \\\"composite_confidence\\\": <integer 0-100>, \\\"reasoning\\\": \\\"<two sentences max, plain language>\\\"}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"INTENT_MATCH_SCORE: {{ JSON.parse($('Intent Match Agent').item.json.content[0].text.slice($('Intent Match Agent').item.json.content[0].text.indexOf('{'), $('Intent Match Agent').item.json.content[0].text.lastIndexOf('}')+1)).intent_match_score }}\\nBEHAVIORAL_SCORE: {{ JSON.parse($('Behavioral Consistency Agent').item.json.content[0].text.slice($('Behavioral Consistency Agent').item.json.content[0].text.indexOf('{'), $('Behavioral Consistency Agent').item.json.content[0].text.lastIndexOf('}')+1)).behavioral_score }}\\nFRAUD_RISK_SCORE: {{ JSON.parse($('Anomaly / Fraud Signal Agent').item.json.content[0].text.slice($('Anomaly / Fraud Signal Agent').item.json.content[0].text.indexOf('{'), $('Anomaly / Fraud Signal Agent').item.json.content[0].text.lastIndexOf('}')+1)).fraud_risk_score }}\\n\\nGiven these three scores, decide APPROVE, STEP_UP, or DECLINE per your rules and return the JSON decision.\"\n    }\n  ]\n}",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 300,\n  \"system\": \"You are the Decision Agent for a card payments network. Given three scores (intent match, behavioral consistency, fraud risk), decide the outcome. Decision logic: APPROVE if all three scores are 80 or above. DECLINE if the fraud risk score is below 30 (this overrides everything else), OR if all three scores are below 40. STEP_UP for everything else. Return ONLY valid JSON, no other text: {\\\"decision\\\": \\\"<APPROVE|STEP_UP|DECLINE>\\\", \\\"composite_confidence\\\": <integer 0-100>, \\\"fraud_risk_score\\\": <integer 0-100, same value as FRAUD_RISK_SCORE above>, \\\"reasoning\\\": \\\"<two sentences max, plain language>\\\"}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"INTENT_MATCH_SCORE: {{ JSON.parse($('Intent Match Agent').item.json.content[0].text.slice($('Intent Match Agent').item.json.content[0].text.indexOf('{'), $('Intent Match Agent').item.json.content[0].text.lastIndexOf('}')+1)).intent_match_score }}\\nBEHAVIORAL_SCORE: {{ JSON.parse($('Behavioral Consistency Agent').item.json.content[0].text.slice($('Behavioral Consistency Agent').item.json.content[0].text.indexOf('{'), $('Behavioral Consistency Agent').item.json.content[0].text.lastIndexOf('}')+1)).behavioral_score }}\\nFRAUD_RISK_SCORE: {{ JSON.parse($('Anomaly / Fraud Signal Agent').item.json.content[0].text.slice($('Anomaly / Fraud Signal Agent').item.json.content[0].text.indexOf('{'), $('Anomaly / Fraud Signal Agent').item.json.content[0].text.lastIndexOf('}')+1)).fraud_risk_score }}\\n\\nGiven these three scores, decide APPROVE, STEP_UP, or DECLINE per your rules and return the JSON decision.\"\n    }\n  ]\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        608,
-        0
+        720,
+        -96
       ],
       "id": "18556713-8836-4575-ac20-9fb73d12d4f3",
       "name": "Decision Agent",
@@ -411,8 +415,8 @@
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.2,
       "position": [
-        832,
-        0
+        896,
+        -96
       ],
       "id": "d2845439-541d-463f-a475-e2f0c0c86138",
       "name": "Create a record",
@@ -422,25 +426,71 @@
           "name": "Airtable Personal Access Token account 2"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appvZz4qGV4sMFsG1",
+          "mode": "list",
+          "cachedResultName": "Agent Intent Verifier",
+          "cachedResultUrl": "https://airtable.com/appvZz4qGV4sMFsG1"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblncwhf2kdK70gTm",
+          "mode": "list",
+          "cachedResultName": "Transaction_Requests",
+          "cachedResultUrl": "https://airtable.com/appvZz4qGV4sMFsG1/tblncwhf2kdK70gTm"
+        },
+        "filterByFormula": "=AND({agent_id} = '{{ $json.body.agent_id }}', {card_member} = '{{ $json.body.card_member }}')",
+        "returnAll": false,
+        "limit": 5,
+        "options": {},
+        "sort": {
+          "property": [
+            {
+              "field": "timestamp",
+              "direction": "desc"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        -96
+      ],
+      "id": "ca304e4d-a162-4173-8d42-4d5e68e4ed62",
+      "name": "Search transaction history",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Jyf2riOCrcBKMuTj",
+          "name": "Airtable Personal Access Token account 2"
+        }
+      }
     }
   ],
+  "pinData": {},
   "connections": {
-    "Search records": {
+    "Webhook": {
       "main": [
         [
           {
-            "node": "Intent Match Agent",
+            "node": "Search transaction history",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Webhook": {
+    "Search records": {
       "main": [
         [
           {
-            "node": "Search records",
+            "node": "Intent Match Agent",
             "type": "main",
             "index": 0
           }
@@ -490,11 +540,30 @@
           }
         ]
       ]
+    },
+    "Search transaction history": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "pinData": {},
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9dc68636-8ac5-4e22-9b1c-975ca9f0ea8d",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "f79853ba6598d884dc3c4c764b3182e39222e923aa939eb3570e380f987315b1"
-  }
+  },
+  "nodeGroups": [],
+  "id": "y5seVE9sSVYkJ8Dk",
+  "tags": []
 }

@@ -1,0 +1,4 @@
+timestamp,agent_id,card_member,merchant,amount,category,intent_match_score,behavioral_score,fraud_risk_score,decision,composite_confidence,reasoning
+2026-09-01T01:52:15.995446+00:00,agent-047,J. Alvarez,Whole Foods,65,Groceries,95,90,95,APPROVE,93,Seeded history row for testing.
+2026-09-01T01:52:15.996436+00:00,agent-047,J. Alvarez,Whole Foods,65,Groceries,95,90,95,APPROVE,93,Seeded history row for testing.
+2026-09-01T01:52:15.997080+00:00,agent-047,J. Alvarez,Whole Foods,65,Groceries,95,90,95,APPROVE,93,Seeded history row for testing.

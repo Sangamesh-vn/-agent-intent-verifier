@@ -49,6 +49,22 @@ AUDIT_LOG_FIELDS = [
 ]
 
 
+def load_history(agent_id: str, card_member: str, limit: int = 5) -> list[dict]:
+    """Look up past transactions for this agent/card member from the local audit log CSV."""
+    path = Path(AUDIT_LOG_FILE)
+    if not path.exists():
+        return []
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        matches = [
+            row for row in reader
+            if row.get("agent_id") == agent_id and row.get("card_member") == card_member
+        ]
+    # Most recent first, capped at `limit`
+    matches.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
+    return matches[:limit]
+
+
 def load_profile(agent_id: str, card_member: str) -> dict:
     """Look up the authorized intent profile for this agent/card member from the local CSV."""
     path = Path(PROFILES_FILE)
@@ -110,25 +126,36 @@ def run_intent_match_agent(client, txn: dict, profile: dict) -> dict:
     return call_claude(client, system, user_content)
 
 
-def run_behavioral_agent(client, txn: dict) -> dict:
+def run_behavioral_agent(client, txn: dict, history: list[dict]) -> dict:
     system = (
         "You are the Behavioral Consistency Agent for a card payments network. Check whether a new "
-        "transaction is consistent with this agent's past request pattern for this card member. If "
-        "history has fewer than 3 entries, score in the low-to-mid range regardless of other factors. "
-        'Return ONLY valid JSON, no other text: {"behavioral_score": <integer 0-100>, '
-        '"merchant_seen_before": <true|false>, "pattern_established": <true|false>, '
+        "transaction is consistent with this agent's past request pattern for this card member. "
+        "Scoring rules: if there are 3 or more past transactions and the new request's merchant, "
+        "category, and amount are all reasonably consistent with that history, score 85-100. If there "
+        "are 3+ past transactions but the new request deviates meaningfully (new merchant, different "
+        "category, or amount far outside the historical range), score 40-70. If there are fewer than 3 "
+        "past transactions, score in the low-to-mid range (30-50) regardless of other factors, since a "
+        'pattern can\'t yet be established. Return ONLY valid JSON, no other text: {"behavioral_score": '
+        '<integer 0-100>, "merchant_seen_before": <true|false>, "pattern_established": <true|false>, '
         '"reasoning": "<one sentence, under 25 words>"}'
     )
+    if history:
+        history_lines = "\n".join(
+            f"- merchant: {h.get('merchant')}, amount: {h.get('amount')}, category: {h.get('category')}"
+            for h in history
+        )
+    else:
+        history_lines = "(no past transactions found for this agent/card member)"
+
     user_content = (
+        f"PAST_HISTORY:\n{history_lines}\n\n"
         f"NEW_REQUEST:\n"
         f"agent_id: {txn['agent_id']}\n"
         f"card_member: {txn['card_member']}\n"
         f"merchant: {txn['merchant']}\n"
         f"amount: {txn['amount']}\n"
         f"category: {txn['category']}\n\n"
-        f"Evaluate this new request's consistency and return the JSON. Note: no historical data source "
-        f"is wired yet, so base this only on internal consistency of the request itself "
-        f"(reasonable amount for category, etc)."
+        f"Evaluate this new request's consistency against the past history and return the JSON."
     )
     return call_claude(client, system, user_content)
 
@@ -186,9 +213,10 @@ def append_audit_log(row: dict) -> None:
 
 def run_pipeline(client: anthropic.Anthropic, txn: dict) -> dict:
     profile = load_profile(txn["agent_id"], txn["card_member"])
+    history = load_history(txn["agent_id"], txn["card_member"])
 
     intent_result = run_intent_match_agent(client, txn, profile)
-    behavioral_result = run_behavioral_agent(client, txn)
+    behavioral_result = run_behavioral_agent(client, txn, history)
     fraud_result = run_fraud_agent(client, txn)
 
     decision_result = run_decision_agent(
@@ -225,6 +253,27 @@ def print_result(txn: dict, result: dict) -> None:
     print(f"  reasoning:             {result['reasoning']}")
 
 
+def seed_history(agent_id: str, card_member: str, merchant: str, category: str, amount: str, count: int = 3) -> None:
+    """Write `count` fake historical audit log rows so the Approve path can be tested."""
+    for i in range(count):
+        row = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "agent_id": agent_id,
+            "card_member": card_member,
+            "merchant": merchant,
+            "amount": amount,
+            "category": category,
+            "intent_match_score": 95,
+            "behavioral_score": 90,
+            "fraud_risk_score": 95,
+            "decision": "APPROVE",
+            "composite_confidence": 93,
+            "reasoning": "Seeded history row for testing.",
+        }
+        append_audit_log(row)
+    print(f"Seeded {count} history rows for agent_id={agent_id}, card_member={card_member}.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run the Agent Intent Verifier pipeline standalone, without n8n.")
     parser.add_argument("--agent-id")
@@ -233,7 +282,17 @@ def main():
     parser.add_argument("--amount")
     parser.add_argument("--category")
     parser.add_argument("--scenarios-file", help="Run every row from a CSV of test scenarios instead of a single transaction.")
+    parser.add_argument("--seed-history", action="store_true", help="Instead of running the pipeline, write 3 fake APPROVE history rows for the given agent-id/card-member/merchant/category/amount, so a follow-up run can reach a full APPROVE.")
     args = parser.parse_args()
+
+    if args.seed_history:
+        required = ["agent_id", "card_member", "merchant", "amount", "category"]
+        missing = [k for k in required if not getattr(args, k)]
+        if missing:
+            print(f"Error: --seed-history requires all of: {', '.join('--' + m.replace('_', '-') for m in required)}", file=sys.stderr)
+            sys.exit(1)
+        seed_history(args.agent_id, args.card_member, args.merchant, args.category, args.amount)
+        return
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
