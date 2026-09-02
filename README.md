@@ -34,7 +34,8 @@ n8n Webhook ──▶ Airtable (lookup authorized intent profile)
 │                                                │
 │  2. Behavioral Consistency Agent               │
 │     — is this consistent with the agent's     │
-│       past request pattern?                   │
+│       past request pattern? (reads real        │
+│       transaction history)                     │
 │                                                │
 │  3. Anomaly / Fraud Signal Agent               │
 │     — is the agent even registered for this   │
@@ -59,7 +60,7 @@ The pipeline runs as two separate n8n workflows: one handles the initial transac
 
 ## Decision logic
 
-The Decision Agent combines the three upstream scores:
+The Decision Agent combines the three upstream scores (intent match, behavioral consistency, fraud risk):
 
 | Condition | Outcome |
 |---|---|
@@ -67,6 +68,8 @@ The Decision Agent combines the three upstream scores:
 | Fraud risk score < 30 (overrides everything else) | **DECLINE** |
 | All three scores < 40 | **DECLINE** |
 | Everything else | **STEP_UP** — routed to human review |
+
+The Decision Agent's response includes all three underlying scores (`fraud_risk_score` included) alongside the final decision, so the full reasoning behind every outcome is preserved in the audit log — not just the label.
 
 `STEP_UP` transactions surface in the approval screen, where a human reviews the agent's reasoning and the three underlying scores before approving or denying.
 
@@ -89,14 +92,14 @@ screenshots/ screenshots of the full flow, including the Step-Up approval screen
 | `workflows/agent-intent-verifier-v2-intent-match-agent.json` | Intent Match Agent |
 | `workflows/agent-intent-verifier-v3-behavioral-agent.json` | + Behavioral Consistency Agent |
 | `workflows/agent-intent-verifier-v4-fraud-agent.json` | + Anomaly/Fraud Signal Agent |
-| `workflows/agent-intent-verifier-v5-COMPLETE.json` | Full pipeline including Decision Agent |
+| `workflows/agent-intent-verifier-v5-COMPLETE.json` | Full pipeline including Decision Agent, real transaction history lookup, and fraud_risk_score passthrough |
 | `workflows/agent-intent-verifier-approval-response.json` | Second workflow — receives the card member's Approve/Deny click from the front-end and writes `card_member_response` back to the Airtable audit log record |
 
 ## Tech stack
 
 - **[n8n](https://n8n.io)** — workflow orchestration engine running the agent pipeline
 - **[Claude API](https://www.anthropic.com/api)** (`claude-sonnet-4-6`) — powers all 4 verification agents
-- **[Airtable](https://airtable.com)** — stores authorized intent profiles and serves as the audit log
+- **[Airtable](https://airtable.com)** — stores authorized intent profiles, transaction history, and serves as the audit log
 - **[Lovable](https://lovable.dev)** — front-end form for submitting transaction requests and the Step-Up approval screen
 
 ## Setup
@@ -105,9 +108,11 @@ screenshots/ screenshots of the full flow, including the Step-Up approval screen
 2. Set up credentials in n8n:
    - **Airtable**: Personal Access Token, configured as an n8n credential (see the `airtableTokenApi` node)
    - **Anthropic**: API key, configured as a Header Auth credential (`x-api-key`) on each HTTP Request node calling the Claude API
-3. Create the Airtable base with tables matching the schema in `schema/` — one table for authorized intent profiles, one for the audit log.
+3. Create the Airtable base with tables matching the schema in `schema/` — one table for authorized intent profiles, one for transaction history, one for the audit log.
 4. Point the Lovable form's submit action at your n8n webhook URL.
-5. Test using the sample data in `data/test_scenarios.csv`.
+5. Test using the sample data in `data/test_scenarios.csv` (also see `data/test_scenarios_new.csv` for additional Approved / Step-Up / Decline scenarios).
+
+> **Node reference scoping note:** when a node in the n8n pipeline isn't a *direct* child of the Webhook trigger, `$json` refers to its immediate input, not the original webhook payload — use `$('Webhook').item.json...` to reach it from anywhere downstream. This tripped us up more than once while building this out, worth knowing if you extend the pipeline.
 
 > **Note:** The exported workflow JSON files do not contain any credentials — all API keys and tokens are referenced via n8n's credential store and must be configured in your own n8n instance.
 
@@ -128,10 +133,13 @@ python replay_scenarios.py --webhook-url <your-n8n-webhook-url> --row 3
 
 Each run prints the request sent and the pipeline's full decision response (scores, reasoning, and final APPROVE / STEP_UP / DECLINE outcome).
 
+`standalone_pipeline.py` runs the same 4-agent logic without n8n at all, reading directly from the local CSVs in `data/` and calling the Claude API — useful for testing the scoring logic in isolation.
+
 ## Status
 
 Working end-to-end prototype: form submission → 4-agent scoring pipeline → decision → audit log → human Step-Up approval loop. Built as an exploration of what an intent-verification layer for agentic payments could look like.
 
 ### Known limitations
 
-- **Behavioral history isn't wired in yet.** The Behavioral Consistency Agent currently has no access to a card member's real transaction history, so it scores conservatively (low-to-mid range) on every request by design. This means even a "clean" transaction can't yet reach a full APPROVE — it will land on STEP_UP instead. Next step: add an Airtable lookup before this agent to pass in real past-transaction data.
+- **Behavioral scoring is calibrated conservatively.** The Behavioral Consistency Agent reads a card member's real transaction history (via `Search transaction history` in n8n / `load_history()` in the standalone pipeline) and scores based on pattern matches against it. In current testing, even repeated identical transactions score in the low-to-mid 70s rather than reliably clearing the 80+ APPROVE threshold, so most requests currently land on STEP_UP for human review rather than auto-approving. This is a tunable scoring threshold and prompt-calibration issue, not a missing-data gap — next step is refining the exact-match scoring rule so clearly consistent agent behavior can reach a confident APPROVE.
+- **No structured decline-reason field.** DECLINE outcomes are explained in a single free-text `reasoning` sentence rather than a distinct machine-readable reason code (e.g. "over spend cap" vs. "unregistered agent" vs. "combined low scores"). The reasoning text is descriptive enough to distinguish these cases for a human reader, but downstream systems currently can't branch on decline type without parsing that text.
