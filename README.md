@@ -1,5 +1,11 @@
 # Agent Intent Verifier
 
+Business Function:AI agents are making purchases on people's behalf — booking travel, buying groceries, renewing subscriptions.
+
+Use Case / Problem Statement: How does the Card Member or Bank know an AI agent was actually authorized to make this specific purchase — not just that it holds a valid credential? A stolen or misused agent could still have a working card token and push through a purchase nobody actually wanted.
+
+Fix/Solution: Fraud Identification & Risk Mitigation — every AI-agent purchase request is checked against the card member's existing authorization profile (spend limit, category, merchant) and the agent's own transaction history, then scored for anomaly/fraud signals. Based on that, the system makes one of three decisions: Allow (Approve), Decline or Step-Up (Human-in-the-Loop)— routing only the genuinely uncertain cases back to the card member for a manual call, rather than auto-approving everything or requiring review on every transaction.
+
 An AI-powered intent verification workflow for autonomous agent payments — built to answer the question: *"Was this AI agent actually authorized to make this transaction?"*
 
 As AI agents start making purchases on behalf of humans (via protocols like Agent Purchase Protection), payment networks need a way to verify that an agent's proposed transaction actually fits what its human principal authorized — not just that the agent has valid credentials. This project is a working prototype of that verification layer, including a human-in-the-loop **Step-Up approval** path for transactions that can't be auto-approved or auto-declined with confidence.
